@@ -2,12 +2,10 @@
 #include "Arduino.h"
 
 // Coospo hw807 Band ACTUAL Service UUIDs (from reverse engineering)
-#define PRIMARY_SERVICE_UUID           "00001800-0000-1000-8000-00805f9b34fb"
-#define DEVICE_NAME_UUID               "00002a00-0000-1000-8000-00805f9b34fb"
-#define BATTERY_SERVICE_UUID           "0000180f-0000-1000-8000-00805f9b34fb"
-#define BATTERY_MASUREMENT_UUID        "00002a19-0000-1000-8000-00805f9b34fb"
-#define HEART_RATE_SERVICE_UUID        "0000180d-0000-1000-8000-00805f9b34fb"
-#define HEART_RATE_MEASUREMENT_UUID    "00002a37-0000-1000-8000-00805f9b34fb"
+#define HEART_RATE_SERVICE_UUID       "0000180d-0000-1000-8000-00805f9b34fb"
+#define HEART_RATE_MEASUREMENT_UUID   "00002a37-0000-1000-8000-00805f9b34fb"
+#define BATTERY_SERVICE_UUID          "0000180f-0000-1000-8000-00805f9b34fb"
+#define BATTERY_LEVEL_UUID            "00002a19-0000-1000-8000-00805f9b34fb"
 
 // Global variables for better state management
 BLEClient* pClient = nullptr;
@@ -16,7 +14,7 @@ BLERemoteService* pBatteryService = nullptr;
 BLERemoteCharacteristic* pBatteryChar = nullptr;
 BLERemoteService* pSensorService = nullptr;
 BLERemoteCharacteristic* pSensorChar = nullptr;
-// Connection state
+
 bool deviceConnected = false;
 bool doConnect = false;
 std::string targetDeviceName = "COOSPO HW807";
@@ -77,34 +75,34 @@ void HRNotifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
 // Initialize BLE services and characteristics
 bool initializeServices() {
   Serial.println("Initializing Coospo services...");
-  
-  // Get Mi Band Main Service
-  pService = pClient->getService(PRIMARY_SERVICE_UUID);
-  if (pService == nullptr) {
-    Serial.println("Coospo service not found");
-    return false;
-  } else {
-    Serial.println("Coospo service found");
-  
-    
-    // Get Battery characteristic
-    pBatteryService = pClient->getService(BATTERY_SERVICE_UUID);
-    pBatteryChar = pBatteryService->getCharacteristic(BATTERY_MASUREMENT_UUID);
+
+  pBatteryService = pClient->getService(BATTERY_SERVICE_UUID);
+  if (pBatteryService != nullptr) {
+    pBatteryChar = pBatteryService->getCharacteristic(BATTERY_LEVEL_UUID);
     if (pBatteryChar != nullptr) {
       Serial.println("Battery characteristic found");
     }
-    
+  } else {
+    Serial.println("Battery service not found");
+  }
 
-    // Get Sensor Data characteristic
-    pSensorService = pClient->getService(HEART_RATE_SERVICE_UUID);
+  pSensorService = pClient->getService(HEART_RATE_SERVICE_UUID);
+  if (pSensorService != nullptr) {
     pSensorChar = pSensorService->getCharacteristic(HEART_RATE_MEASUREMENT_UUID);
     if (pSensorChar != nullptr) {
-      Serial.println("Sensor Data characteristic found");
+      Serial.println("Heart Rate characteristic found");
+      
+      pSensorChar->registerForNotify(HRNotifyCallback);
+    } else {
+      Serial.println("Heart Rate characteristic not found");
     }
+  } else {
+    Serial.println("Heart Rate service not found");
   }
-  
+
   return (pSensorChar != nullptr || pBatteryChar != nullptr);
 }
+
 
 // Separate function for cleaner code organization
 void startScan() {
