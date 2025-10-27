@@ -16,7 +16,7 @@ BLERemoteService* pBatteryService = nullptr;
 BLERemoteCharacteristic* pBatteryChar = nullptr;
 BLERemoteService* pSensorService = nullptr;
 BLERemoteCharacteristic* pSensorChar = nullptr;
-
+// Connection state
 bool deviceConnected = false;
 bool doConnect = false;
 std::string targetDeviceName = "COOSPO HW807";
