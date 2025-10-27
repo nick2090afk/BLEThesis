@@ -64,11 +64,17 @@ bool initializeServices();
 
 // HR notification callback
 void HRNotifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, 
-                        uint8_t* pData, size_t length, bool isNotify) {
-  if (length >= 4) {
-    // Coospo HR data is typically 4 bytes (little-endian)
-    currentHR = pData[0] | (pData[1] << 8) | (pData[2] << 16) | (pData[3] << 24);
-    Serial.printf("Heart Rate: %d\n", currentHR);
+                      uint8_t* pData, size_t length, bool isNotify) {
+  // Byte 0: Flags, Byte 1: HR (if 8bit), Byte 1+2: HR (if 16bit)
+  if (length > 1) {
+    uint8_t flags = pData[0];
+    bool isHRValue16bit = (flags & 0x01);
+    if (isHRValue16bit && length > 2) {
+        currentHR = (pData[2] << 8) | pData[1];
+    } else {
+        currentHR = pData[1];
+    }
+    Serial.printf("Heart Rate: %d bpm\n", currentHR);
   }
 }
 
