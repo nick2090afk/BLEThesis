@@ -33,10 +33,9 @@ class MyClientCallback : public BLEClientCallbacks {
   void onConnect(BLEClient* pclient) override {
     Serial.println("Connected to Coospo Armband!");
     deviceConnected = true;
-    servicesInitialized = false;  // Reset flag
+    servicesInitialized = false;  
     
-    // DO NOT call initializeServices() here!
-    // Will be called from loop instead
+    
   }
   
   void onDisconnect(BLEClient* pclient) override {
@@ -72,7 +71,7 @@ void HRNotifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
   }
 }
 
-// Initialize BLE services - CALL THIS FROM LOOP, NOT FROM CALLBACK!
+// Initialize BLE services
 bool initializeServices() {
   Serial.println("Initializing Coospo services...");
   
@@ -179,7 +178,6 @@ void requestSmartBandData() {
     }
   }
   
-  Serial.printf("Status - HR: %d, Battery: %d%%\n", currentHR, batteryLevel);
 }
 
 void setup() {
@@ -206,7 +204,7 @@ void loop() {
   }
 
   // Initialize services AFTER connection is established
-  // This is the KEY FIX - call getService() from loop, not callback
+ 
   if (deviceConnected && !servicesInitialized) {
     delay(1000);  // Give connection time to stabilize
     if (initializeServices()) {
