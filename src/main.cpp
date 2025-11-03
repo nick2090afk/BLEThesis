@@ -28,6 +28,7 @@ unsigned long lastDataRequest = 0;
 // Forward declarations
 void startScan();
 bool initializeServices();
+bool isScanning = false;
 
 class MyClientCallback : public BLEClientCallbacks {
   void onConnect(BLEClient* pclient) override {
@@ -129,17 +130,28 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
     // Check if this is our target device
     if (advertisedDevice.haveName() && advertisedDevice.getName() == targetDeviceName) {
-      Serial.printf("Found target: %s\n", advertisedDevice.getName().c_str());
-      
-      BLEDevice::getScan()->stop();
-      myDevice = new BLEAdvertisedDevice(advertisedDevice);
-      doConnect = true;
+    Serial.printf("Found target: %s\n", advertisedDevice.getName().c_str());
+    BLEDevice::getScan()->stop();
+    isScanning = false;  // Reset flag
+    myDevice = new BLEAdvertisedDevice(advertisedDevice);
+    doConnect = true;
     }
   }
 };
 
+
 void startScan() {
+  if (isScanning) return;
+  isScanning = true;
   Serial.println("Starting BLE scan...");
+
+  // Clean up previous device reference
+  if (myDevice != nullptr) {
+    delete myDevice;
+    myDevice = nullptr;
+  }
+  
+
   BLEScan* pBLEScan = BLEDevice::getScan();
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
   pBLEScan->setActiveScan(true);
@@ -151,7 +163,14 @@ void startScan() {
 bool connectToServer() {
   Serial.print("Connecting to: ");
   Serial.println(myDevice->getAddress().toString().c_str());
+  
+  // Delete old client if connection previously failed
+  if (pClient != nullptr && !pClient->isConnected()) {
+    delete pClient;
+    pClient = nullptr;
+  }
 
+  // Create new client if needed
   if (pClient == nullptr) {
     pClient = BLEDevice::createClient();
     pClient->setClientCallbacks(new MyClientCallback());
@@ -161,6 +180,8 @@ bool connectToServer() {
   // Connect to remote BLE Server
   if (!pClient->connect(myDevice)) {
     Serial.println("Failed to connect");
+     delete pClient;
+    pClient = nullptr;
     return false;
   }
   
