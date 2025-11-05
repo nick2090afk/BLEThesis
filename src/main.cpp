@@ -1,9 +1,10 @@
 #include "BLEDevice.h"
 #include "Arduino.h"
-#include <WiFi.h>
+#include "WiFi.h"
 #include "PubSubClient.h"
 #include "WiFiClientSecure.h"
 #include "ArduinoJson.h"
+#include "secrets.h" // Include WiFi credentials and other secrets
 
 // Coospo hw807 Band Service UUIDs
 #define HEART_RATE_SERVICE_UUID     "0000180d-0000-1000-8000-00805f9b34fb"
@@ -12,14 +13,14 @@
 #define BATTERY_LEVEL_UUID            "00002a19-0000-1000-8000-00805f9b34fb"
 
 // WiFi credentials
-const char *ssid = "Foukis";            // Replace with your WiFi name
-const char *password = "Alas$1968@";    // Replace with your WiFi password
+// const char *ssid = "yourWiFiname";            // Replace with your WiFi name
+// const char *password = "yourWiFipassword";    // Replace with your WiFi password
 
 // MQTT Broker settings
 const char *mqtt_broker = "wearable.duckdns.org";
 const char *mqtt_topic = "testtopic";
-const char *mqtt_username = "eee19387271";
-const char *mqtt_password = "19387271eee";
+// const char *mqtt_username = "yourMQTTusername";   // Replace with your MQTT username
+// const char *mqtt_password = "yourMQTTpassword";   // Replace with your MQTT password
 const int mqtt_port = 8883;
 
 // WiFi and MQTT client initialization
