@@ -18,13 +18,17 @@ BLEAdvertisedDevice* myDevice = nullptr;
 bool deviceConnected = false;
 bool doConnect = false;
 bool servicesInitialized = false;
-bool isScanning = false; // Flag to track scan state
+bool isScanning = false;
 std::string targetDeviceName = "COOSPO HW807";
 
 // Data storage
 int currentHR = 0;
 int batteryLevel = 0;
 unsigned long lastDataRequest = 0;
+class MyAdvertisedDeviceCallbacks;
+class MyClientCallback;
+MyAdvertisedDeviceCallbacks* pScanCallback = nullptr;
+MyClientCallback* pClientCallback = nullptr;
 
 // Forward declarations
 void startScan();
@@ -118,7 +122,6 @@ bool initializeServices() {
   } else {
     Serial.println("Heart Rate service not found");
   }
-
   servicesInitialized = true;
   return (pSensorChar != nullptr || pBatteryChar != nullptr);
 }
@@ -139,9 +142,9 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
   }
 };
 
-// ADDED: This function is called when the scan (set in startScan) completes
 void scanCompleteCallback(BLEScanResults scanResults) {
   Serial.println("Scan finished.");
+  BLEDevice::getScan()->clearResults();  // CRITICAL FIX: Free scan result memory
   isScanning = false;
 }
 
@@ -158,12 +161,16 @@ void startScan() {
   }
   
   BLEScan* pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+  if (pScanCallback == nullptr) {
+    pScanCallback = new MyAdvertisedDeviceCallbacks();
+  }
+  pBLEScan->setAdvertisedDeviceCallbacks(pScanCallback);
+  
   pBLEScan->setActiveScan(true);
   pBLEScan->setInterval(100);
   pBLEScan->setWindow(99);
   
-  // UPDATED: Start scan with a 10-second duration and a completion callback
+  // Start scan with completion callback
   pBLEScan->start(10, scanCompleteCallback, false);
 }
 
@@ -180,14 +187,16 @@ bool connectToServer() {
   // Create new client if needed
   if (pClient == nullptr) {
     pClient = BLEDevice::createClient();
-    pClient->setClientCallbacks(new MyClientCallback());
+    if (pClientCallback == nullptr) {
+      pClientCallback = new MyClientCallback();
+    }
+    pClient->setClientCallbacks(pClientCallback);
     Serial.println("Client created");
   }
 
   // Connect to remote BLE Server
   if (!pClient->connect(myDevice)) {
     Serial.println("Failed to connect");
-    // Don't delete client here, just return false
     return false;
   }
   
@@ -209,10 +218,8 @@ void requestSmartBandData() {
 void setup() {
   Serial.begin(115200);
   Serial.println("ESP32 BLE Coospo Client Starting...");
-  
   BLEDevice::init("ESP32_BLE_Client");
   Serial.println("BLE Device initialized");
-  
   startScan();
 }
 
@@ -231,13 +238,11 @@ void loop() {
 
   // Initialize services AFTER connection is established
   if (deviceConnected && !servicesInitialized) {
-    delay(1000);  // Give connection time to stabilize
+    delay(1000);
     if (initializeServices()) {
       Serial.println("Services initialized successfully");
     } else {
       Serial.println("Failed to initialize services");
-      // Optional: disconnect to force a full rescan cycle
-      // if (pClient) pClient->disconnect();
     }
   }
 
@@ -250,7 +255,7 @@ void loop() {
     
     // Check connection status (fallback)
     if (!pClient->isConnected()) {
-      Serial.println("Connection lost (detected in loop)");
+      Serial.println("Connection lost!");
       deviceConnected = false;
       servicesInitialized = false;
       doConnect = false;
@@ -259,7 +264,7 @@ void loop() {
   
   if (!deviceConnected && !doConnect) {
     if (!isScanning) {
-       Serial.println("Loop: Restarting scan...");
+       Serial.println("Restarting scan...");
        delay(5000); // Wait 5 seconds before retrying
        startScan();
     }
