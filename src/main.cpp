@@ -2,7 +2,7 @@
 #include "Arduino.h"
 
 // Coospo hw807 Band Service UUIDs
-#define HEART_RATE_SERVICE_UUID       "0000180d-0000-1000-8000-00805f9b34fb"
+#define HEART_RATE_SERVICE_UUID     "0000180d-0000-1000-8000-00805f9b34fb"
 #define HEART_RATE_MEASUREMENT_UUID   "00002a37-0000-1000-8000-00805f9b34fb"
 #define BATTERY_SERVICE_UUID          "0000180f-0000-1000-8000-00805f9b34fb"
 #define BATTERY_LEVEL_UUID            "00002a19-0000-1000-8000-00805f9b34fb"
@@ -18,6 +18,7 @@ BLEAdvertisedDevice* myDevice = nullptr;
 bool deviceConnected = false;
 bool doConnect = false;
 bool servicesInitialized = false;
+bool isScanning = false; // Flag to track scan state
 std::string targetDeviceName = "COOSPO HW807";
 
 // Data storage
@@ -28,15 +29,13 @@ unsigned long lastDataRequest = 0;
 // Forward declarations
 void startScan();
 bool initializeServices();
-bool isScanning = false;
+void scanCompleteCallback(BLEScanResults scanResults); 
 
 class MyClientCallback : public BLEClientCallbacks {
   void onConnect(BLEClient* pclient) override {
     Serial.println("Connected to Coospo Armband!");
     deviceConnected = true;
-    servicesInitialized = false;  
-    
-    
+    servicesInitialized = false;
   }
   
   void onDisconnect(BLEClient* pclient) override {
@@ -51,9 +50,6 @@ class MyClientCallback : public BLEClientCallbacks {
     pSensorService = nullptr;
     pSensorChar = nullptr;
     
-    Serial.println("Restarting scan in 5 seconds...");
-    delay(5000);
-    startScan();
   }
 };
 
@@ -108,9 +104,13 @@ bool initializeServices() {
         // IMPORTANT: Write to CCCD to enable notifications
         const uint8_t notificationOn[] = {0x1, 0x0};
         const uint8_t notificationOff[] = {0x0, 0x0};
-        pSensorChar->getDescriptor(BLEUUID((uint16_t)0x2902))->writeValue((uint8_t*)notificationOn, 2, true);
-        
-        Serial.println("Notifications enabled for HR");
+        BLERemoteDescriptor* pNotifyDescriptor = pSensorChar->getDescriptor(BLEUUID((uint16_t)0x2902));
+        if (pNotifyDescriptor) {
+            pNotifyDescriptor->writeValue((uint8_t*)notificationOn, 2, true);
+            Serial.println("Notifications enabled for HR");
+        } else {
+            Serial.println("Failed to find CCCD descriptor");
+        }
       }
     } else {
       Serial.println("Heart Rate characteristic not found");
@@ -130,18 +130,24 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
     // Check if this is our target device
     if (advertisedDevice.haveName() && advertisedDevice.getName() == targetDeviceName) {
-    Serial.printf("Found target: %s\n", advertisedDevice.getName().c_str());
-    BLEDevice::getScan()->stop();
-    isScanning = false;  // Reset flag
-    myDevice = new BLEAdvertisedDevice(advertisedDevice);
-    doConnect = true;
+      Serial.printf("Found target: %s\n", advertisedDevice.getName().c_str());
+      BLEDevice::getScan()->stop();
+      isScanning = false;  // We found our device, so scan is done
+      myDevice = new BLEAdvertisedDevice(advertisedDevice);
+      doConnect = true;
     }
   }
 };
 
+// ADDED: This function is called when the scan (set in startScan) completes
+void scanCompleteCallback(BLEScanResults scanResults) {
+  Serial.println("Scan finished.");
+  isScanning = false;
+}
 
 void startScan() {
   if (isScanning) return;
+  
   isScanning = true;
   Serial.println("Starting BLE scan...");
 
@@ -151,13 +157,14 @@ void startScan() {
     myDevice = nullptr;
   }
   
-
   BLEScan* pBLEScan = BLEDevice::getScan();
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
   pBLEScan->setActiveScan(true);
   pBLEScan->setInterval(100);
   pBLEScan->setWindow(99);
-  pBLEScan->start(10, false);
+  
+  // UPDATED: Start scan with a 10-second duration and a completion callback
+  pBLEScan->start(10, scanCompleteCallback, false);
 }
 
 bool connectToServer() {
@@ -180,8 +187,7 @@ bool connectToServer() {
   // Connect to remote BLE Server
   if (!pClient->connect(myDevice)) {
     Serial.println("Failed to connect");
-     delete pClient;
-    pClient = nullptr;
+    // Don't delete client here, just return false
     return false;
   }
   
@@ -198,7 +204,6 @@ void requestSmartBandData() {
       Serial.printf("Battery Level: %d%%\n", batteryLevel);
     }
   }
-  
 }
 
 void setup() {
@@ -225,13 +230,14 @@ void loop() {
   }
 
   // Initialize services AFTER connection is established
- 
   if (deviceConnected && !servicesInitialized) {
     delay(1000);  // Give connection time to stabilize
     if (initializeServices()) {
       Serial.println("Services initialized successfully");
     } else {
       Serial.println("Failed to initialize services");
+      // Optional: disconnect to force a full rescan cycle
+      // if (pClient) pClient->disconnect();
     }
   }
 
@@ -242,18 +248,21 @@ void loop() {
       lastDataRequest = millis();
     }
     
-    // Check connection status
+    // Check connection status (fallback)
     if (!pClient->isConnected()) {
+      Serial.println("Connection lost (detected in loop)");
       deviceConnected = false;
       servicesInitialized = false;
-      Serial.println("Connection lost");
+      doConnect = false;
     }
   }
   
-  // Restart scan if disconnected
   if (!deviceConnected && !doConnect) {
-    delay(10000);
-    startScan();
+    if (!isScanning) {
+       Serial.println("Loop: Restarting scan...");
+       delay(5000); // Wait 5 seconds before retrying
+       startScan();
+    }
   }
   
   delay(100);
