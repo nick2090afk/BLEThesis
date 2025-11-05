@@ -1,11 +1,30 @@
 #include "BLEDevice.h"
 #include "Arduino.h"
+#include <WiFi.h>
+#include "PubSubClient.h"
+#include "WiFiClientSecure.h"
+#include "ArduinoJson.h"
 
 // Coospo hw807 Band Service UUIDs
 #define HEART_RATE_SERVICE_UUID     "0000180d-0000-1000-8000-00805f9b34fb"
 #define HEART_RATE_MEASUREMENT_UUID   "00002a37-0000-1000-8000-00805f9b34fb"
 #define BATTERY_SERVICE_UUID          "0000180f-0000-1000-8000-00805f9b34fb"
 #define BATTERY_LEVEL_UUID            "00002a19-0000-1000-8000-00805f9b34fb"
+
+// WiFi credentials
+const char *ssid = "Foukis";            // Replace with your WiFi name
+const char *password = "Alas$1968@";    // Replace with your WiFi password
+
+// MQTT Broker settings
+const char *mqtt_broker = "wearable.duckdns.org";
+const char *mqtt_topic = "testtopic";
+const char *mqtt_username = "eee19387271";
+const char *mqtt_password = "19387271eee";
+const int mqtt_port = 8883;
+
+// WiFi and MQTT client initialization
+WiFiClientSecure esp_client;
+PubSubClient mqtt_client(esp_client);
 
 // Global variables
 BLEClient* pClient = nullptr;
@@ -30,10 +49,43 @@ class MyClientCallback;
 MyAdvertisedDeviceCallbacks* pScanCallback = nullptr;
 MyClientCallback* pClientCallback = nullptr;
 
+// Root CA Certificate
+const char *ca_cert = R"EOF(
+-----BEGIN CERTIFICATE-----
+MIIEVzCCAj+gAwIBAgIRAKp18eYrjwoiCWbTi7/UuqEwDQYJKoZIhvcNAQELBQAw
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMjQwMzEzMDAwMDAw
+WhcNMjcwMzEyMjM1OTU5WjAyMQswCQYDVQQGEwJVUzEWMBQGA1UEChMNTGV0J3Mg
+RW5jcnlwdDELMAkGA1UEAxMCRTcwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAARB6AST
+CFh/vjcwDMCgQer+VtqEkz7JANurZxLP+U9TCeioL6sp5Z8VRvRbYk4P1INBmbef
+QHJFHCxcSjKmwtvGBWpl/9ra8HW0QDsUaJW2qOJqceJ0ZVFT3hbUHifBM/2jgfgw
+gfUwDgYDVR0PAQH/BAQDAgGGMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
+ATASBgNVHRMBAf8ECDAGAQH/AgEAMB0GA1UdDgQWBBSuSJ7chx1EoG/aouVgdAR4
+wpwAgDAfBgNVHSMEGDAWgBR5tFnme7bl5AFzgAiIyBpY9umbbjAyBggrBgEFBQcB
+AQQmMCQwIgYIKwYBBQUHMAKGFmh0dHA6Ly94MS5pLmxlbmNyLm9yZy8wEwYDVR0g
+BAwwCjAIBgZngQwBAgEwJwYDVR0fBCAwHjAcoBqgGIYWaHR0cDovL3gxLmMubGVu
+Y3Iub3JnLzANBgkqhkiG9w0BAQsFAAOCAgEAjx66fDdLk5ywFn3CzA1w1qfylHUD
+aEf0QZpXcJseddJGSfbUUOvbNR9N/QQ16K1lXl4VFyhmGXDT5Kdfcr0RvIIVrNxF
+h4lqHtRRCP6RBRstqbZ2zURgqakn/Xip0iaQL0IdfHBZr396FgknniRYFckKORPG
+yM3QKnd66gtMst8I5nkRQlAg/Jb+Gc3egIvuGKWboE1G89NTsN9LTDD3PLj0dUMr
+OIuqVjLB8pEC6yk9enrlrqjXQgkLEYhXzq7dLafv5Vkig6Gl0nuuqjqfp0Q1bi1o
+yVNAlXe6aUXw92CcghC9bNsKEO1+M52YY5+ofIXlS/SEQbvVYYBLZ5yeiglV6t3S
+M6H+vTG0aP9YHzLn/KVOHzGQfXDP7qM5tkf+7diZe7o2fw6O7IvN6fsQXEQQj8TJ
+UXJxv2/uJhcuy/tSDgXwHM8Uk34WNbRT7zGTGkQRX0gsbjAea/jYAoWv0ZvQRwpq
+Pe79D/i7Cep8qWnA+7AE/3B3S/3dEEYmc0lpe1366A/6GEgk3ktr9PEoQrLChs6I
+tu3wnNLB2euC8IKGLQFpGtOO/2/hiAKjyajaBP25w1jF0Wl8Bbqne3uZ2q1GyPFJ
+YRmT7/OXpmOH/FVLtwS+8ng1cAmpCujPwteJZNcDG0sF2n/sc0+SQf49fdyUK0ty
++VUwFj9tmWxyR/M=
+-----END CERTIFICATE-----
+)EOF";
+
 // Forward declarations
 void startScan();
 bool initializeServices();
-void scanCompleteCallback(BLEScanResults scanResults); 
+void scanCompleteCallback(BLEScanResults scanResults);
+void connectToWiFi();
+void connectToMQTT();
+void mqttCallback(char* topic, byte* payload, unsigned int length); 
 
 class MyClientCallback : public BLEClientCallbacks {
   void onConnect(BLEClient* pclient) override {
@@ -221,6 +273,58 @@ void setup() {
   BLEDevice::init("ESP32_BLE_Client");
   Serial.println("BLE Device initialized");
   startScan();
+  connectToWiFi();
+  // Set Root CA certificate
+  esp_client.setCACert(ca_cert);
+  mqtt_client.setServer(mqtt_broker, mqtt_port);
+  mqtt_client.setKeepAlive(60);
+  mqtt_client.setCallback(mqttCallback);
+  connectToMQTT();
+}
+
+void connectToWiFi() {
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected to WiFi");
+}
+
+void connectToMQTT() {
+  while (!mqtt_client.connected()) {
+    String client_id = "esp32-client-" + String(WiFi.macAddress());
+    Serial.printf("Connecting to MQTT Broker as %s...\n", client_id.c_str());
+    if (mqtt_client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
+      Serial.println("Connected to MQTT broker");
+      mqtt_client.subscribe(mqtt_topic);
+      
+      // Publish initial JSON message upon connection
+      StaticJsonDocument<200> doc;
+      doc["heart_rate"] = currentHR;
+      doc["battery_level"] = batteryLevel;
+      char jsonBuffer[256];
+      serializeJson(doc, jsonBuffer);
+      mqtt_client.publish(mqtt_topic, jsonBuffer);
+
+    } else {
+      Serial.print("Failed to connect to MQTT broker, rc=");
+      Serial.print(mqtt_client.state());
+      Serial.println(" Retrying in 5 seconds.");
+      delay(5000);
+    }
+  }
+}
+
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message received on topic: ");
+  Serial.println(topic);
+  Serial.print("Message: ");
+  for (unsigned int i = 0; i < length; i++) {
+    Serial.print((char) payload[i]);
+  }
+  Serial.println("\n-----------------------");
 }
 
 void loop() {
@@ -235,6 +339,12 @@ void loop() {
       startScan();
     }
   }
+
+  // Ensure MQTT connection
+  if (!mqtt_client.connected()) {
+    connectToMQTT();
+  }
+  mqtt_client.loop();
 
   // Initialize services AFTER connection is established
   if (deviceConnected && !servicesInitialized) {
@@ -253,6 +363,19 @@ void loop() {
       lastDataRequest = millis();
     }
     
+    // Periodically publishing JSON messages with sensor values
+  static unsigned long lastPublish = 0;
+  if (millis() - lastPublish > 10000) { // every 10 seconds
+    StaticJsonDocument<200> doc;
+    doc["heart_rate"] = currentHR;
+    doc["battery_level"] = batteryLevel;
+    char jsonBuffer[256];
+    serializeJson(doc, jsonBuffer);
+    mqtt_client.publish(mqtt_topic, jsonBuffer);
+    Serial.println("Published JSON sensor data");
+    lastPublish = millis();
+  }
+
     // Check connection status (fallback)
     if (!pClient->isConnected()) {
       Serial.println("Connection lost!");
