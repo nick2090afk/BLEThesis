@@ -18,7 +18,7 @@
 
 // MQTT Broker settings
 const char *mqtt_broker = "wearable.duckdns.org";
-const char *mqtt_topic = "testtopic";
+const char *mqtt_topic = "home/esp32/data";
 // const char *mqtt_username = "yourMQTTusername";   // Replace with your MQTT username
 // const char *mqtt_password = "yourMQTTpassword";   // Replace with your MQTT password
 const int mqtt_port = 8883;
@@ -258,11 +258,10 @@ bool connectToServer() {
 }
 
 void requestSmartBandData() {
-  // Read battery level
   if (pBatteryChar != nullptr && pBatteryChar->canRead()) {
-    std::string batteryValue = pBatteryChar->readValue();
-    if (!batteryValue.empty()) {
-      batteryLevel = (uint8_t)batteryValue[0];
+    std::string value = pBatteryChar->readValue();
+    if (!value.empty()) {
+      batteryLevel = (uint8_t)value[0];
       Serial.printf("Battery Level: %d%%\n", batteryLevel);
     }
   }
@@ -270,12 +269,14 @@ void requestSmartBandData() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("ESP32 BLE Coospo Client Starting...");
+  
+  // Initialize BLE first and let it stabilize
   BLEDevice::init("ESP32_BLE_Client");
-  Serial.println("BLE Device initialized");
   startScan();
+  delay(2000);  // Allow BLE stack to stabilize
+  
+  // Then initialize WiFi/MQTT
   connectToWiFi();
-  // Set Root CA certificate
   esp_client.setCACert(ca_cert);
   mqtt_client.setServer(mqtt_broker, mqtt_port);
   mqtt_client.setKeepAlive(60);
@@ -294,26 +295,17 @@ void connectToWiFi() {
 }
 
 void connectToMQTT() {
-  while (!mqtt_client.connected()) {
+  if (!mqtt_client.connected()) {
     String client_id = "esp32-client-" + String(WiFi.macAddress());
-    Serial.printf("Connecting to MQTT Broker as %s...\n", client_id.c_str());
+    Serial.printf("Attempting MQTT connection as %s...\n", client_id.c_str());
+    
     if (mqtt_client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
       Serial.println("Connected to MQTT broker");
       mqtt_client.subscribe(mqtt_topic);
-      
-      // Publish initial JSON message upon connection
-      StaticJsonDocument<200> doc;
-      doc["heart_rate"] = currentHR;
-      doc["battery_level"] = batteryLevel;
-      char jsonBuffer[256];
-      serializeJson(doc, jsonBuffer);
-      mqtt_client.publish(mqtt_topic, jsonBuffer);
-
     } else {
-      Serial.print("Failed to connect to MQTT broker, rc=");
-      Serial.print(mqtt_client.state());
-      Serial.println(" Retrying in 5 seconds.");
-      delay(5000);
+      Serial.print("Failed, rc=");
+      Serial.println(mqtt_client.state());
+      // Will retry on next loop iteration
     }
   }
 }
@@ -342,11 +334,15 @@ void loop() {
   }
 
   // Ensure MQTT connection
-  if (!mqtt_client.connected()) {
+  static unsigned long lastMqttAttempt = 0;
+ if (!mqtt_client.connected()) {
+  if (millis() - lastMqttAttempt > 5000) {
     connectToMQTT();
+    lastMqttAttempt = millis();
   }
+} else {
   mqtt_client.loop();
-
+}
   // Initialize services AFTER connection is established
   if (deviceConnected && !servicesInitialized) {
     delay(1000);
@@ -358,34 +354,38 @@ void loop() {
   }
 
   // Handle data requests when fully connected and initialized
-  if (deviceConnected && servicesInitialized && pClient != nullptr) {
-    if (millis() - lastDataRequest > 10000) {
-      requestSmartBandData();
-      lastDataRequest = millis();
-    }
-    
-    // Periodically publishing JSON messages with sensor values
+if (deviceConnected && servicesInitialized && pClient != nullptr) {
   static unsigned long lastPublish = 0;
-  if (millis() - lastPublish > 10000) { // every 10 seconds
+  
+  if (millis() - lastPublish > 10000) {
+    requestSmartBandData();
+    
+    // Publish after reading new data
     StaticJsonDocument<200> doc;
     doc["heart_rate"] = currentHR;
     doc["battery_level"] = batteryLevel;
     char jsonBuffer[256];
     serializeJson(doc, jsonBuffer);
-    mqtt_client.publish(mqtt_topic, jsonBuffer);
-    Serial.println("Published JSON sensor data");
+    
+    if (mqtt_client.publish(mqtt_topic, jsonBuffer)) {
+      Serial.println("Published JSON sensor data");
+    } else {
+      Serial.println("Publish failed!");
+    }
+    
     lastPublish = millis();
   }
 
-    // Check connection status (fallback)
-    if (!pClient->isConnected()) {
-      Serial.println("Connection lost!");
-      deviceConnected = false;
-      servicesInitialized = false;
-      doConnect = false;
-    }
+  // Check connection status
+  if (!pClient->isConnected()) {
+    Serial.println("Connection lost!");
+    deviceConnected = false;
+    servicesInitialized = false;
+    doConnect = false;
   }
-  
+}
+
+  // If not connected and not trying to connect, restart scan
   if (!deviceConnected && !doConnect) {
     if (!isScanning) {
        Serial.println("Restarting scan...");
