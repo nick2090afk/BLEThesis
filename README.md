@@ -165,7 +165,7 @@ Examble:
     }
 
 Configuration Details
-BLE Settings (Find your device UUIDs using nRF connect)
+BLE Settings (Find your device UUIDs using nRF connect for android: https://play.google.com/store/apps/details?id=no.nordicsemi.android.mcp&hl=en and for iOS: https://apps.apple.com/us/app/nrf-connect-for-mobile/id1054362403)
 
     Service UUID: 0000180d-0000-1000-8000-00805f9b34fb (Heart Rate)
 
