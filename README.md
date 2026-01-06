@@ -52,47 +52,46 @@ Project Setup
 
 Project Structure
 
-text
-project_root/
-├── .vscode
-├── include
-├── lib
-├── src/
-│   └── main.cpp          # Main source code
-│   └── secrets.h         # WiFi and MQTT credentials
-├── test
-├── platformio.ini        # PlatformIO configuration
-└── README.md
+    project_root/
+    ├── .vscode
+    ├── include
+    ├── lib
+    ├── src/
+    │   └── main.cpp          # Main source code
+    │   └── secrets.h         # WiFi and MQTT credentials
+    ├── test
+    ├── platformio.ini        # PlatformIO configuration
+    └── README.md
 
 Configuration
 platformio.ini
 
 Your platformio.ini file should contain:
 
-text
-[env:esp32dev]
-platform = espressif32
-board = esp32dev
-framework = arduino
-monitor_speed = 115200
-board_build.partitions = min_spiffs.csv
-lib_deps = knolleary/PubSubClient@^2.8, bblanchon/ArduinoJson@^6.18.5
+    text
+    [env:esp32dev]
+    platform = espressif32
+    board = esp32dev
+    framework = arduino
+    monitor_speed = 115200
+    board_build.partitions = min_spiffs.csv
+    lib_deps = knolleary/PubSubClient@^2.8, bblanchon/ArduinoJson@^6.18.5
 
 Adjust the board parameter if you're using a different ESP32 board variant.
 Create secrets.h File
 
 Create a file named secrets.h in the include/ directory with the following content:
 
-cpp
-#pragma once
+    cpp
+    #pragma once
 
-// WiFi credentials
-const char *ssid = "your_wifi_name";
-const char *password = "your_wifi_password";
+    // WiFi credentials
+    const char *ssid = "your_wifi_name";
+    const char *password = "your_wifi_password";
 
-// MQTT credentials
-const char *mqtt_username = "your_mqtt_username";
-const char *mqtt_password = "your_mqtt_password";
+    // MQTT credentials
+    const char *mqtt_username = "your_mqtt_username";
+    const char *mqtt_password = "your_mqtt_password";
 
 
 Replace the placeholder values with your actual credentials.
@@ -103,8 +102,8 @@ Modify Device Name (Optional)
 
 If you're using a different BLE heart rate monitor, change the target device name in main.cpp:
 
-cpp
-std::string targetDeviceName = "COOSPO HW807";
+    cpp
+    std::string targetDeviceName = "COOSPO HW807";
 
 Usage
 Build the Project
@@ -158,11 +157,12 @@ Data Format
 The device publishes JSON data to the MQTT topic every 10 seconds:
 
 Examble:
-json
-{
-  "heart_rate": 75,
-  "battery_level": 85
-}
+
+    json
+    {
+       "heart_rate": 75,
+       "battery_level": 85
+    }
 
 Configuration Details
 BLE Settings (Find your device UUIDs using nRF connect)
@@ -279,7 +279,8 @@ MQTT settings
 
     MQTT messages use QoS 0 (fire and forget)
     
-    For QoS 1 modify the code: 
+For QoS 1 modify the code: 
+    
     mqtt_client.publish(mqtt_topic, jsonBuffer, false); // QoS 0 (current) 
     mqtt_client.subscribe(mqtt_topic, 1); // QoS 1 for subscribe
     
