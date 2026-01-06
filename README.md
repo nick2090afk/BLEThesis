@@ -13,11 +13,11 @@ Hardware Requirements
 
 Software Requirements
 
-    Arduino IDE or Vs Code with platformio plugin
+    Visual Studio Code
 
-    ESP32 board support package
+    PlatformIO extension for VS Code
 
-    Required libraries:
+    Required libraries (automatically managed by PlatformIO):
 
         BLEDevice (ESP32 BLE Arduino)
 
@@ -30,36 +30,61 @@ Software Requirements
         ArduinoJson
 
 Installation
-Install Libraries
+Install VS Code and PlatformIO
 
-Open Arduino IDE and install the following libraries through Library Manager:
+    Download and install Visual Studio Code from https://code.visualstudio.com/
 
-    PubSubClient by Nick O'Leary
+    Open VS Code and go to Extensions (Ctrl+Shift+X)
 
-    ArduinoJson by Benoit Blanchon
+    Search for "PlatformIO IDE" and click Install
 
-The BLE, WiFi, and WiFiClientSecure libraries are included with the ESP32 board package.
-Install ESP32 Board Support
+    Restart VS Code after installation
 
-    Open Arduino IDE preferences
+Project Setup
 
-    Add this URL to Additional Board Manager URLs:
+    Clone or download this repository
 
-    text
-    https://dl.espressif.com/dl/package_esp32_index.json
+    Open VS Code
 
-    Go to Tools > Board > Boards Manager
+    Click "Open Folder" and select the project directory
 
-    Search for "ESP32" and install "ESP32 by Espressif Systems"
+    PlatformIO will automatically detect the project and install dependencies
+
+Project Structure
+
+text
+project_root/
+├── .vscode
+├── include
+├── lib
+├── src/
+│   └── main.cpp          # Main source code
+│   └── secrets.h         # WiFi and MQTT credentials
+├── test
+├── platformio.ini        # PlatformIO configuration
+└── README.md
 
 Configuration
+platformio.ini
+
+Your platformio.ini file should contain:
+
+text
+[env:esp32dev]
+platform = espressif32
+board = esp32dev
+framework = arduino
+monitor_speed = 115200
+board_build.partitions = min_spiffs.csv
+lib_deps = knolleary/PubSubClient@^2.8, bblanchon/ArduinoJson@^6.18.5
+
+Adjust the board parameter if you're using a different ESP32 board variant.
 Create secrets.h File
 
-Create a file named secrets.h in the same directory as your main sketch with the following content:
+Create a file named secrets.h in the include/ directory with the following content:
 
 cpp
-#ifndef SECRETS_H
-#define SECRETS_H
+#pragma once
 
 // WiFi credentials
 const char *ssid = "your_wifi_name";
@@ -69,46 +94,70 @@ const char *password = "your_wifi_password";
 const char *mqtt_username = "your_mqtt_username";
 const char *mqtt_password = "your_mqtt_password";
 
-#endif
 
 Replace the placeholder values with your actual credentials.
 Update Certificate
 
-If your MQTT broker uses a different SSL certificate, replace the ca_cert constant in the main code with your broker's root CA certificate.
+If your MQTT broker uses a different SSL certificate, replace the ca_cert constant in main.cpp with your broker's root CA certificate.
 Modify Device Name (Optional)
 
-If you're using a different BLE heart rate monitor, change the target device name:
+If you're using a different BLE heart rate monitor, change the target device name in main.cpp:
 
 cpp
 std::string targetDeviceName = "COOSPO HW807";
 
 Usage
-Upload the Code
+Build the Project
+
+    Open the project in VS Code
+
+    Click the checkmark icon in the PlatformIO toolbar (or press Ctrl+Alt+B)
+
+    Wait for the build to complete
+
+Upload to ESP32
 
     Connect your ESP32 to your computer via USB
 
-    Select the correct board and port in Arduino IDE or VS code(platformio)
+    Click the right arrow icon in the PlatformIO toolbar (or press Ctrl+Alt+U)
 
-    Click Upload
+    PlatformIO will automatically detect the port and upload
 
-Monitor Operation
+Monitor Serial Output
 
-Open the Serial Monitor at 115200 baud to view:
+    Click the plug icon in the PlatformIO toolbar (or press Ctrl+Alt+S)
 
-    BLE scanning progress
+    Serial monitor will open at 115200 baud showing:
 
-    Connection status
+        BLE scanning progress
 
-    Heart rate readings
+        Connection status
 
-    Battery levels
+        Heart rate readings
 
-    MQTT publish confirmations
+        Battery levels
+
+        MQTT publish confirmations
+
+PlatformIO Commands
+
+Access the PlatformIO menu by clicking the alien icon in the left sidebar:
+
+    Build: Compile the project
+
+    Upload: Upload firmware to ESP32
+
+    Upload and Monitor: Upload and immediately open serial monitor
+
+    Clean: Remove build files
+
+    Test: Run unit tests (if configured)
 
 Data Format
 
 The device publishes JSON data to the MQTT topic every 10 seconds:
 
+Examble:
 json
 {
   "heart_rate": 75,
@@ -116,7 +165,7 @@ json
 }
 
 Configuration Details
-BLE Settings
+BLE Settings (Find your device UUIDs using nRF connect)
 
     Service UUID: 0000180d-0000-1000-8000-00805f9b34fb (Heart Rate)
 
@@ -128,11 +177,11 @@ BLE Settings
 
 MQTT Settings
 
-    Broker: add your MQTT Broker
+    Broker: add your MQTT broker
 
     Port: 8883 (SSL/TLS)
 
-    Topic: add your MQTT topic
+    Topic: add your topic
 
     Keep-alive: 60 seconds
 
@@ -147,6 +196,26 @@ Timing
     Scan restart delay: 5 seconds
 
 Troubleshooting
+PlatformIO Cannot Find Board
+
+    Check that your ESP32 is connected via USB
+
+    Verify the correct board is specified in platformio.ini
+
+    Try a different USB cable or port
+
+    Install USB drivers if necessary (CP2102 or CH340 depending on your board)
+
+Build Errors
+
+    Clean the project: PlatformIO > Clean
+
+    Delete the .pio folder and rebuild
+
+    Check that all libraries are installed correctly
+
+    Verify secrets.h is in the include/ directory
+
 Cannot Find BLE Device
 
     Ensure the heart rate monitor is powered on and in pairing mode
@@ -181,9 +250,17 @@ No Heart Rate Data
 
     Verify the monitor is detecting heart rate (check monitor's own display)
 
-Memory Issues
+Upload Failed
 
-The code includes memory management features like clearing scan results to prevent heap fragmentation. If you experience crashes, monitor free heap in Serial Monitor.
+    Hold the BOOT button on ESP32 while uploading
+
+    Reset the board and try again
+
+    Check that no other program is using the serial port
+
+    Verify correct upload speed in platformio.ini (default is usually fine)
+
+
 Notes
 
     The ESP32 connects to both BLE and WiFi simultaneously
@@ -195,11 +272,17 @@ Notes
     The device automatically reconnects if either BLE or MQTT connection is lost
 
     MQTT messages use QoS 0 (fire and forget)
+
+    PlatformIO automatically manages library dependencies and board configurations
+
+MQTT settings
+
+    MQTT messages use QoS 0 (fire and forget)
+    
     For QoS 1 modify the code: 
     mqtt_client.publish(mqtt_topic, jsonBuffer, false); // QoS 0 (current) 
     mqtt_client.subscribe(mqtt_topic, 1); // QoS 1 for subscribe
     
-If your ESP32 microcontroller has 2MB of memory you need to add 
 
 License
 
