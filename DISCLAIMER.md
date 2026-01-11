@@ -1,5 +1,5 @@
 # Medical and Ethical Disclaimer
-## IMPORTANT: This project is for educational and research purposes only.
+## IMPORTANT: This project is for academic and research purposes only.
 
 - **Not a medical device**
 
