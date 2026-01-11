@@ -1,34 +1,22 @@
-ESP32 BLE Heart Rate Monitor with MQTT
+# BLE Heart Rate Monitor Client - Coospo HW807 Integration
 
-A simple ESP32 application that connects to a Coospo HW807 heart rate armband via Bluetooth Low Energy (BLE) and publishes heart rate and battery data to an MQTT broker over WiFi.
-Hardware Requirements
+ESP32-WROOM BLE client that connects to the Coospo HW807 commercial heart rate monitor armband, receives real-time heart rate and battery level data, and publishes it to a secure MQTT broker. Developed using VS Code with PlatformIO for professional embedded development workflows.
 
-    ESP32 development board
+## Hardware Requirements
 
-    Coospo HW807 heart rate armband
+### Required Components
+- **ESP32-WROOM** development board (any variant)
+- **Coospo HW807** Heart Rate Monitor Armband (or compatible BLE HR device)
+- USB cable for programming
+- Stable WiFi network
+- MQTT broker with TLS support (local or cloud)
 
-    WiFi network access
+## Software Requirements
 
-    MQTT broker with SSL/TLS support
-
-Software Requirements
-
-    Visual Studio Code
-
-    PlatformIO extension for VS Code
-
-    Required libraries (automatically managed by PlatformIO):
-
-        BLEDevice (ESP32 BLE Arduino)
-
-        WiFi (ESP32 built-in)
-
-        PubSubClient
-
-        WiFiClientSecure
-
-        ArduinoJson
-
+### Development Environment
+- **Visual Studio Code** (latest version)
+- **PlatformIO IDE Extension** for VS Code
+- **Git** (optional, for version control)
 Installation
 Install VS Code and PlatformIO
 
@@ -40,7 +28,7 @@ Install VS Code and PlatformIO
 
     Restart VS Code after installation
 
-Project Setup
+## Project Setup
 
     Clone or download this repository
 
@@ -50,7 +38,7 @@ Project Setup
 
     PlatformIO will automatically detect the project and install dependencies
 
-Project Structure
+## Project Structure
 
     project_root/
     ├── .vscode
@@ -63,10 +51,9 @@ Project Structure
     ├── platformio.ini        # PlatformIO configuration
     └── README.md
 
-Configuration
-platformio.ini
+## Configuration platformio.ini
 
-Your platformio.ini file should contain:
+### Your platformio.ini file should contain:
 
     text
     [env:esp32dev]
@@ -77,10 +64,10 @@ Your platformio.ini file should contain:
     board_build.partitions = min_spiffs.csv
     lib_deps = knolleary/PubSubClient@^2.8, bblanchon/ArduinoJson@^6.18.5
 
-Adjust the board parameter if you're using a different ESP32 board variant.
-Create secrets.h File
+## Adjust the board parameter if you're using a different ESP32 board variant.
 
-Create a file named secrets.h in the include/ directory with the following content:
+## Create secrets.h File
+### Create a file named secrets.h in the include/ directory with the following content:
 
     cpp
     #pragma once
@@ -94,8 +81,8 @@ Create a file named secrets.h in the include/ directory with the following conte
     const char *mqtt_password = "your_mqtt_password";
 
 
-Replace the placeholder values with your actual credentials.
-Update Certificate
+### Replace the placeholder values with your actual credentials.
+### Update Certificate
 
 If your MQTT broker uses a different SSL certificate, replace the ca_cert constant in main.cpp with your broker's root CA certificate.
 Modify Device Name (Optional)
