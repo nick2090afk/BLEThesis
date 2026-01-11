@@ -283,8 +283,22 @@ For QoS 1 modify the code:
     
     mqtt_client.publish(mqtt_topic, jsonBuffer, false); // QoS 0 (current) 
     mqtt_client.subscribe(mqtt_topic, 1); // QoS 1 for subscribe
+
+Medical Device Disclaimer
+
+!!!! IMPORTANT !!!!: This project is for academic and development purposes only.
+
+    Not FDA approved or CE marked for medical use
+
+    Not intended to diagnose, treat, or monitor medical conditions
+
+    MAX30100 accuracy is limited compared to medical-grade devices
+
+    Always consult qualified medical professionals for health monitoring
+
+    Do not rely on this device for critical health decisions
     
 
 License
 
-This code is provided as-is for educational and personal use.
+This project is released under the MIT License for academic and research purposes.
