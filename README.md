@@ -64,7 +64,7 @@ Install VS Code and PlatformIO
     board_build.partitions = min_spiffs.csv
     lib_deps = knolleary/PubSubClient@^2.8, bblanchon/ArduinoJson@^6.18.5
 
-## Adjust the board parameter if you're using a different ESP32 board variant.
+### Adjust the board parameter if you're using a different ESP32 board variant.
 
 ## Create secrets.h File
 ### Create a file named secrets.h in the include/ directory with the following content:
@@ -84,7 +84,7 @@ Install VS Code and PlatformIO
 ### Replace the placeholder values with your actual credentials.
 ### Update Certificate
 
-If your MQTT broker uses a different SSL certificate, replace the ca_cert constant in main.cpp with your broker's root CA certificate.
+## If your MQTT broker uses a different SSL certificate, replace the ca_cert constant in main.cpp with your broker's root CA certificate.
 Modify Device Name (Optional)
 
 If you're using a different BLE heart rate monitor, change the target device name in main.cpp:
@@ -92,8 +92,8 @@ If you're using a different BLE heart rate monitor, change the target device nam
     cpp
     std::string targetDeviceName = "COOSPO HW807";
 
-Usage
-Build the Project
+## Usage
+### Build the Project
 
     Open the project in VS Code
 
@@ -101,7 +101,7 @@ Build the Project
 
     Wait for the build to complete
 
-Upload to ESP32
+### Upload to ESP32
 
     Connect your ESP32 to your computer via USB
 
@@ -109,7 +109,7 @@ Upload to ESP32
 
     PlatformIO will automatically detect the port and upload
 
-Monitor Serial Output
+### Monitor Serial Output
 
     Click the plug icon in the PlatformIO toolbar (or press Ctrl+Alt+S)
 
@@ -125,9 +125,9 @@ Monitor Serial Output
 
         MQTT publish confirmations
 
-PlatformIO Commands
+## PlatformIO Commands
 
-Access the PlatformIO menu by clicking the alien icon in the left sidebar:
+### Access the PlatformIO menu by clicking the alien icon in the left sidebar:
 
     Build: Compile the project
 
@@ -139,11 +139,11 @@ Access the PlatformIO menu by clicking the alien icon in the left sidebar:
 
     Test: Run unit tests (if configured)
 
-Data Format
+## Data Format
 
-The device publishes JSON data to the MQTT topic every 10 seconds:
+### The device publishes JSON data to the MQTT topic every 10 seconds:
 
-Examble:
+#### Examble:
 
     json
     {
@@ -151,8 +151,8 @@ Examble:
        "battery_level": 85
     }
 
-Configuration Details
-BLE Settings (Find your device UUIDs using nRF connect for android: https://play.google.com/store/apps/details?id=no.nordicsemi.android.mcp&hl=en and for iOS: https://apps.apple.com/us/app/nrf-connect-for-mobile/id1054362403)
+### Configuration Details
+#### BLE Settings (Find your device UUIDs using nRF connect for android: https://play.google.com/store/apps/details?id=no.nordicsemi.android.mcp&hl=en and for iOS: https://apps.apple.com/us/app/nrf-connect-for-mobile/id1054362403)
 
     Service UUID: 0000180d-0000-1000-8000-00805f9b34fb (Heart Rate)
 
@@ -162,7 +162,7 @@ BLE Settings (Find your device UUIDs using nRF connect for android: https://play
 
     Battery Characteristic UUID: 00002a19-0000-1000-8000-00805f9b34fb
 
-MQTT Settings
+## MQTT Settings
 
     Broker: add your MQTT broker
 
@@ -172,7 +172,7 @@ MQTT Settings
 
     Keep-alive: 60 seconds
 
-Timing
+## Timing
 
     BLE scan duration: 10 seconds
 
@@ -182,8 +182,8 @@ Timing
 
     Scan restart delay: 5 seconds
 
-Troubleshooting
-PlatformIO Cannot Find Board
+## Troubleshooting
+### PlatformIO Cannot Find Board
 
     Check that your ESP32 is connected via USB
 
@@ -193,7 +193,7 @@ PlatformIO Cannot Find Board
 
     Install USB drivers if necessary (CP2102 or CH340 depending on your board)
 
-Build Errors
+### Build Errors
 
     Clean the project: PlatformIO > Clean
 
@@ -203,7 +203,7 @@ Build Errors
 
     Verify secrets.h is in the include/ directory
 
-Cannot Find BLE Device
+### Cannot Find BLE Device
 
     Ensure the heart rate monitor is powered on and in pairing mode
 
@@ -211,7 +211,7 @@ Cannot Find BLE Device
 
     Verify the monitor is not connected to another device
 
-WiFi Connection Issues
+### WiFi Connection Issues
 
     Verify SSID and password in secrets.h
 
@@ -219,7 +219,7 @@ WiFi Connection Issues
 
     Ensure your network supports 2.4 GHz (ESP32 does not support 5 GHz)
 
-MQTT Connection Failures
+### MQTT Connection Failures
 
     Verify MQTT broker address and port
 
@@ -229,7 +229,7 @@ MQTT Connection Failures
 
     Confirm the broker is accessible from your network
 
-No Heart Rate Data
+### No Heart Rate Data
 
     Check serial monitor for "Notifications enabled for HR" message
 
@@ -237,7 +237,7 @@ No Heart Rate Data
 
     Verify the monitor is detecting heart rate (check monitor's own display)
 
-Upload Failed
+### Upload Failed
 
     Hold the BOOT button on ESP32 while uploading
 
@@ -248,7 +248,7 @@ Upload Failed
     Verify correct upload speed in platformio.ini (default is usually fine)
 
 
-Notes
+## Notes
 
     The ESP32 connects to both BLE and WiFi simultaneously
 
@@ -262,16 +262,16 @@ Notes
 
     PlatformIO automatically manages library dependencies and board configurations
 
-MQTT settings
+## MQTT settings
 
     MQTT messages use QoS 0 (fire and forget)
     
-For QoS 1 modify the code: 
+### For QoS 1 modify the code: 
     
     mqtt_client.publish(mqtt_topic, jsonBuffer, false); // QoS 0 (current) 
     mqtt_client.subscribe(mqtt_topic, 1); // QoS 1 for subscribe
 
-Medical Device Disclaimer
+## Medical Device Disclaimer
 
 !!!! IMPORTANT !!!!: This project is for academic and development purposes only.
 
@@ -286,6 +286,6 @@ Medical Device Disclaimer
     Do not rely on this device for critical health decisions
     
 
-License
+## License
 
 This project is released under the MIT License for academic and research purposes.
