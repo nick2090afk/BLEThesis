@@ -269,21 +269,22 @@ Install VS Code and PlatformIO
     mqtt_client.publish(mqtt_topic, jsonBuffer, false); // QoS 0 (current) 
     mqtt_client.subscribe(mqtt_topic, 1); // QoS 1 for subscribe
 
-## Medical Device Disclaimer
+## Medical and Ethical Disclaimer
 
-!!!! IMPORTANT !!!!: This project is for academic and development purposes only.
+!!!! IMPORTANT !!!!: This project is for academic and research purposes only.
 
-    Not FDA approved or CE marked for medical use
+**Not a medical device**
 
-    Not intended to diagnose, treat, or monitor medical conditions
+**Not FDA approved or CE marked**
 
-    MAX30100 accuracy is limited compared to medical-grade devices
+**Not intended for medical diagnosis or treatment**
 
-    Always consult qualified medical professionals for health monitoring
+**Heart rate data may not be medically accurate**
 
-    Do not rely on this device for critical health decisions
+**Always consult healthcare professionals for medical advice**
+
+**Educational Purpose: Intended for learning, research, and technology demonstration**
     
-
 ## License
 
 This project is released under the MIT License for academic and research purposes.
