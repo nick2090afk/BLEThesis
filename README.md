@@ -85,8 +85,6 @@ Install VS Code and PlatformIO
 ## Update Certificate
 
 ### If your MQTT broker uses a different SSL certificate, replace the ca_cert constant in main.cpp with your broker's root CA certificate.
-Modify Device Name (Optional)
-
 ### If you're using a different BLE heart rate monitor, change the target device name in main.cpp:
 
     cpp
