@@ -82,12 +82,12 @@ Install VS Code and PlatformIO
 
 
 ### Replace the placeholder values with your actual credentials.
-### Update Certificate
+## Update Certificate
 
-## If your MQTT broker uses a different SSL certificate, replace the ca_cert constant in main.cpp with your broker's root CA certificate.
+### If your MQTT broker uses a different SSL certificate, replace the ca_cert constant in main.cpp with your broker's root CA certificate.
 Modify Device Name (Optional)
 
-If you're using a different BLE heart rate monitor, change the target device name in main.cpp:
+### If you're using a different BLE heart rate monitor, change the target device name in main.cpp:
 
     cpp
     std::string targetDeviceName = "COOSPO HW807";
