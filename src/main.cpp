@@ -34,6 +34,7 @@ BLERemoteCharacteristic* pBatteryChar = nullptr;
 BLERemoteService* pSensorService = nullptr;
 BLERemoteCharacteristic* pSensorChar = nullptr;
 BLEAdvertisedDevice* myDevice = nullptr;
+unsigned long packetCounter = 0;
 
 bool deviceConnected = false;
 bool doConnect = false;
@@ -197,7 +198,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
 void scanCompleteCallback(BLEScanResults scanResults) {
   Serial.println("Scan finished.");
-  BLEDevice::getScan()->clearResults();  // CRITICAL FIX: Free scan result memory
+  BLEDevice::getScan()->clearResults();  // Free scan result memory
   isScanning = false;
 }
 
@@ -285,8 +286,9 @@ void setup() {
 }
 
 void connectToWiFi() {
-  WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -364,6 +366,7 @@ if (deviceConnected && servicesInitialized && pClient != nullptr) {
     StaticJsonDocument<200> doc;
     doc["heart_rate"] = currentHR;
     doc["battery_level"] = batteryLevel;
+    doc["seq_id"] = packetCounter++;
     char jsonBuffer[256];
     serializeJson(doc, jsonBuffer);
     
