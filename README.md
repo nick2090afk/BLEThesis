@@ -62,7 +62,7 @@ Install VS Code and PlatformIO
     framework = arduino
     monitor_speed = 115200
     board_build.partitions = min_spiffs.csv
-    lib_deps = knolleary/PubSubClient@^2.8, bblanchon/ArduinoJson@^6.18.5
+    lib_deps = knolleary/PubSubClient@^2.8, bblanchon/ArduinoJson@^7.4.2
 
 ### Adjust the board parameter if you're using a different ESP32 board variant.
 
@@ -79,7 +79,9 @@ Install VS Code and PlatformIO
     // MQTT credentials
     const char *mqtt_username = "your_mqtt_username";
     const char *mqtt_password = "your_mqtt_password";
-
+    const char *mqtt_server = "your_mqtt_server";
+    const char mqtt_port = 8883:
+    const char *topic = "your_topic";
 
 ### Replace the placeholder values with your actual credentials.
 ## Update Certificate
