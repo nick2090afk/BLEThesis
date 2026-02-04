@@ -12,10 +12,6 @@
 #define BAT_SERVICE_UUID "0000180f-0000-1000-8000-00805f9b34fb"
 #define BAT_LEVEL_UUID "00002a19-0000-1000-8000-00805f9b34fb"
 
-const char* mqtt_server = "wearable.duckdns.org";
-const int mqtt_port = 8883;
-const char* topic = "home/esp32/data";
-
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
