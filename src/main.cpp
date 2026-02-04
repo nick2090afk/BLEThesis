@@ -4,52 +4,37 @@
 #include "PubSubClient.h"
 #include "WiFiClientSecure.h"
 #include "ArduinoJson.h"
-#include "secrets.h" // Include WiFi credentials and other secrets
+#include "secrets.h" 
 
-// Coospo hw807 Band Service UUIDs
-#define HEART_RATE_SERVICE_UUID     "0000180d-0000-1000-8000-00805f9b34fb"
-#define HEART_RATE_MEASUREMENT_UUID   "00002a37-0000-1000-8000-00805f9b34fb"
-#define BATTERY_SERVICE_UUID          "0000180f-0000-1000-8000-00805f9b34fb"
-#define BATTERY_LEVEL_UUID            "00002a19-0000-1000-8000-00805f9b34fb"
+// UUIDs for Coospo
+#define HR_SERVICE_UUID "0000180d-0000-1000-8000-00805f9b34fb"
+#define HR_CHAR_UUID "00002a37-0000-1000-8000-00805f9b34fb"
+#define BAT_SERVICE_UUID "0000180f-0000-1000-8000-00805f9b34fb"
+#define BAT_LEVEL_UUID "00002a19-0000-1000-8000-00805f9b34fb"
 
-// WiFi credentials
-// const char *ssid = "yourWiFiname";            // Replace with your WiFi name
-// const char *password = "yourWiFipassword";    // Replace with your WiFi password
-
-// MQTT Broker settings
-const char *mqtt_broker = "wearable.duckdns.org";
-const char *mqtt_topic = "home/esp32/data";
-// const char *mqtt_username = "yourMQTTusername";   // Replace with your MQTT username
-// const char *mqtt_password = "yourMQTTpassword";   // Replace with your MQTT password
+const char* mqtt_server = "wearable.duckdns.org";
 const int mqtt_port = 8883;
+const char* topic = "home/esp32/data";
 
-// WiFi and MQTT client initialization
-WiFiClientSecure esp_client;
-PubSubClient mqtt_client(esp_client);
+WiFiClientSecure espClient;
+PubSubClient client(espClient);
 
-// Global variables
-BLEClient* pClient = nullptr;
-BLERemoteService* pBatteryService = nullptr;
-BLERemoteCharacteristic* pBatteryChar = nullptr;
-BLERemoteService* pSensorService = nullptr;
-BLERemoteCharacteristic* pSensorChar = nullptr;
+// BLE globals
+BLEClient* bleClient = nullptr;
+BLERemoteCharacteristic* batChar = nullptr;
+BLERemoteCharacteristic* hrChar = nullptr;
 BLEAdvertisedDevice* myDevice = nullptr;
-unsigned long packetCounter = 0;
 
-bool deviceConnected = false;
+bool connected = false;
 bool doConnect = false;
-bool servicesInitialized = false;
-bool isScanning = false;
-std::string targetDeviceName = "COOSPO HW807";
+bool scanning = false;
+String targetName = "COOSPO HW807";
 
-// Data storage
-int currentHR = 0;
-int batteryLevel = 0;
-unsigned long lastDataRequest = 0;
-class MyAdvertisedDeviceCallbacks;
-class MyClientCallback;
-MyAdvertisedDeviceCallbacks* pScanCallback = nullptr;
-MyClientCallback* pClientCallback = nullptr;
+int hrValue = 0;
+int batLevel = 0;
+unsigned long lastMsg = 0;
+unsigned long count = 0;
+
 
 // Root CA Certificate
 const char *ca_cert = R"EOF(
@@ -81,321 +66,165 @@ YRmT7/OXpmOH/FVLtwS+8ng1cAmpCujPwteJZNcDG0sF2n/sc0+SQf49fdyUK0ty
 -----END CERTIFICATE-----
 )EOF";
 
-// Forward declarations
-void startScan();
-bool initializeServices();
-void scanCompleteCallback(BLEScanResults scanResults);
-void connectToWiFi();
-void connectToMQTT();
-void mqttCallback(char* topic, byte* payload, unsigned int length); 
-
 class MyClientCallback : public BLEClientCallbacks {
-  void onConnect(BLEClient* pclient) override {
-    Serial.println("Connected to Coospo Armband!");
-    deviceConnected = true;
-    servicesInitialized = false;
+  void onConnect(BLEClient* pclient) {
+    connected = true;
+    Serial.println("BLE connected");
   }
-  
-  void onDisconnect(BLEClient* pclient) override {
-    Serial.println("Disconnected from Coospo Armband");
-    deviceConnected = false;
-    doConnect = false;
-    servicesInitialized = false;
-    
-    // Reset service pointers
-    pBatteryService = nullptr;
-    pBatteryChar = nullptr;
-    pSensorService = nullptr;
-    pSensorChar = nullptr;
-    
+  void onDisconnect(BLEClient* pclient) {
+    connected = false;
+    Serial.println("BLE disconnected");
   }
 };
 
-// HR notification callback
-void HRNotifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, 
-                      uint8_t* pData, size_t length, bool isNotify) {
-  if (length > 1) {
-    uint8_t flags = pData[0];
-    bool isHRValue16bit = (flags & 0x01);
-    if (isHRValue16bit && length > 2) {
-        currentHR = (pData[2] << 8) | pData[1];
-    } else {
-        currentHR = pData[1];
+// handle notifications
+void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
+    // byte 0 is flags, byte 1 is value if 8bit
+    if(length > 1) {
+       hrValue = pData[1]; // assume 8bit for now
+       Serial.printf("Got HR: %d\n", hrValue);
     }
-    Serial.printf("Heart Rate: %d bpm\n", currentHR);
-  }
 }
 
-// Initialize BLE services
-bool initializeServices() {
-  Serial.println("Initializing Coospo services...");
-  
-  if (!pClient || !pClient->isConnected()) {
-    Serial.println("Client not connected!");
-    return false;
+bool setupServices() {
+  if (!bleClient) return false;
+
+  // Battery
+  BLERemoteService* pRemoteService = bleClient->getService(BAT_SERVICE_UUID);
+  if (pRemoteService) {
+      batChar = pRemoteService->getCharacteristic(BAT_LEVEL_UUID);
   }
 
-  // Get Battery Service
-  pBatteryService = pClient->getService(BATTERY_SERVICE_UUID);
-  if (pBatteryService != nullptr) {
-    Serial.println("Battery service found");
-    pBatteryChar = pBatteryService->getCharacteristic(BATTERY_LEVEL_UUID);
-    if (pBatteryChar != nullptr) {
-      Serial.println("Battery characteristic found");
-    }
-  } else {
-    Serial.println("Battery service not found");
-  }
-
-  // Get Heart Rate Service
-  pSensorService = pClient->getService(HEART_RATE_SERVICE_UUID);
-  if (pSensorService != nullptr) {
-    Serial.println("Heart Rate service found");
-    pSensorChar = pSensorService->getCharacteristic(HEART_RATE_MEASUREMENT_UUID);
-    if (pSensorChar != nullptr) {
-      Serial.println("Heart Rate characteristic found");
-      
-      // Register for notifications
-      if (pSensorChar->canNotify()) {
-        pSensorChar->registerForNotify(HRNotifyCallback);
-        
-        // IMPORTANT: Write to CCCD to enable notifications
-        const uint8_t notificationOn[] = {0x1, 0x0};
-        const uint8_t notificationOff[] = {0x0, 0x0};
-        BLERemoteDescriptor* pNotifyDescriptor = pSensorChar->getDescriptor(BLEUUID((uint16_t)0x2902));
-        if (pNotifyDescriptor) {
-            pNotifyDescriptor->writeValue((uint8_t*)notificationOn, 2, true);
-            Serial.println("Notifications enabled for HR");
-        } else {
-            Serial.println("Failed to find CCCD descriptor");
-        }
+  // HR
+  pRemoteService = bleClient->getService(HR_SERVICE_UUID);
+  if (pRemoteService) {
+      hrChar = pRemoteService->getCharacteristic(HR_CHAR_UUID);
+      if(hrChar && hrChar->canNotify()) {
+          hrChar->registerForNotify(notifyCallback);
+          
+          // enable notifications
+          const uint8_t on[] = {0x1, 0x0};
+          hrChar->getDescriptor(BLEUUID((uint16_t)0x2902))->writeValue((uint8_t*)on, 2, true);
       }
-    } else {
-      Serial.println("Heart Rate characteristic not found");
-    }
-  } else {
-    Serial.println("Heart Rate service not found");
   }
-  servicesInitialized = true;
-  return (pSensorChar != nullptr || pBatteryChar != nullptr);
+  
+  return true;
 }
 
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
   void onResult(BLEAdvertisedDevice advertisedDevice) {
-    Serial.print("BLE Device found: ");
+    Serial.print("Device: "); 
     Serial.println(advertisedDevice.toString().c_str());
-
-    // Check if this is our target device
-    if (advertisedDevice.haveName() && advertisedDevice.getName() == targetDeviceName) {
-      Serial.printf("Found target: %s\n", advertisedDevice.getName().c_str());
+    
+    if (advertisedDevice.getName() == targetName.c_str()) {
+      Serial.println("Target found!");
       BLEDevice::getScan()->stop();
-      isScanning = false;  // We found our device, so scan is done
       myDevice = new BLEAdvertisedDevice(advertisedDevice);
       doConnect = true;
+      scanning = false;
     }
   }
 };
 
-void scanCompleteCallback(BLEScanResults scanResults) {
-  Serial.println("Scan finished.");
-  BLEDevice::getScan()->clearResults();  // Free scan result memory
-  isScanning = false;
+// Callback for when the scan finishes
+void scanCompleteCB(BLEScanResults scanResults) {
+  Serial.println("Scan complete!");
+  scanning = false; 
+  // Clean up results to free memory
+  BLEDevice::getScan()->clearResults();
 }
 
 void startScan() {
-  if (isScanning) return;
-  
-  isScanning = true;
-  Serial.println("Starting BLE scan...");
-
-  // Clean up previous device reference
-  if (myDevice != nullptr) {
-    delete myDevice;
-    myDevice = nullptr;
-  }
-  
+  scanning = true; 
   BLEScan* pBLEScan = BLEDevice::getScan();
-  if (pScanCallback == nullptr) {
-    pScanCallback = new MyAdvertisedDeviceCallbacks();
-  }
-  pBLEScan->setAdvertisedDeviceCallbacks(pScanCallback);
-  
+  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+  pBLEScan->setInterval(1349);
+  pBLEScan->setWindow(449);
   pBLEScan->setActiveScan(true);
-  pBLEScan->setInterval(100);
-  pBLEScan->setWindow(99);
-  
-  // Start scan with completion callback
-  pBLEScan->start(10, scanCompleteCallback, false);
-}
-
-bool connectToServer() {
-  Serial.print("Connecting to: ");
-  Serial.println(myDevice->getAddress().toString().c_str());
-  
-  // Delete old client if connection previously failed
-  if (pClient != nullptr && !pClient->isConnected()) {
-    delete pClient;
-    pClient = nullptr;
-  }
-
-  // Create new client if needed
-  if (pClient == nullptr) {
-    pClient = BLEDevice::createClient();
-    if (pClientCallback == nullptr) {
-      pClientCallback = new MyClientCallback();
-    }
-    pClient->setClientCallbacks(pClientCallback);
-    Serial.println("Client created");
-  }
-
-  // Connect to remote BLE Server
-  if (!pClient->connect(myDevice)) {
-    Serial.println("Failed to connect");
-    return false;
-  }
-  
-  Serial.println("Connected to server");
-  return true;
-}
-
-void requestSmartBandData() {
-  if (pBatteryChar != nullptr && pBatteryChar->canRead()) {
-    std::string value = pBatteryChar->readValue();
-    if (!value.empty()) {
-      batteryLevel = (uint8_t)value[0];
-      Serial.printf("Battery Level: %d%%\n", batteryLevel);
-    }
-  }
+  pBLEScan->start(5, scanCompleteCB, false);
 }
 
 void setup() {
   Serial.begin(115200);
   
-  // Initialize BLE first and let it stabilize
-  BLEDevice::init("ESP32_BLE_Client");
-  startScan();
-  delay(2000);  // Allow BLE stack to stabilize
-  
-  // Then initialize WiFi/MQTT
-  connectToWiFi();
-  esp_client.setCACert(ca_cert);
-  mqtt_client.setServer(mqtt_broker, mqtt_port);
-  mqtt_client.setKeepAlive(60);
-  mqtt_client.setCallback(mqttCallback);
-  connectToMQTT();
-}
-
-void connectToWiFi() {
-  Serial.print("Connecting to WiFi");
+  // Connect WiFi
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\nConnected to WiFi");
-}
+  Serial.println("WiFi OK");
 
-void connectToMQTT() {
-  if (!mqtt_client.connected()) {
-    String client_id = "esp32-client-" + String(WiFi.macAddress());
-    Serial.printf("Attempting MQTT connection as %s...\n", client_id.c_str());
-    
-    if (mqtt_client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
-      Serial.println("Connected to MQTT broker");
-      mqtt_client.subscribe(mqtt_topic);
-    } else {
-      Serial.print("Failed, rc=");
-      Serial.println(mqtt_client.state());
-      // Will retry on next loop iteration
-    }
-  }
-}
-
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message received on topic: ");
-  Serial.println(topic);
-  Serial.print("Message: ");
-  for (unsigned int i = 0; i < length; i++) {
-    Serial.print((char) payload[i]);
-  }
-  Serial.println("\n-----------------------");
+  // Secure Client setup
+  espClient.setCACert(ca_cert);
+  client.setServer(mqtt_server, mqtt_port);
+  
+  // Start BLE
+  BLEDevice::init("");
+  startScan();
 }
 
 void loop() {
-  // Handle connection request
+  if (!client.connected()) {
+      if(client.connect("ESP32_Wearable", mqtt_username, mqtt_password)) {
+          Serial.println("MQTT Connected");
+      }
+  }
+  client.loop();
+
   if (doConnect) {
-    if (connectToServer()) {
-      Serial.println("Connection successful");
-      doConnect = false;
-    } else {
-      Serial.println("Connection failed");
-      doConnect = false;
-      startScan();
+    if (bleClient == nullptr) {
+        bleClient = BLEDevice::createClient();
+        bleClient->setClientCallbacks(new MyClientCallback());
     }
-  }
 
-  // Ensure MQTT connection
-  static unsigned long lastMqttAttempt = 0;
- if (!mqtt_client.connected()) {
-  if (millis() - lastMqttAttempt > 5000) {
-    connectToMQTT();
-    lastMqttAttempt = millis();
-  }
-} else {
-  mqtt_client.loop();
-}
-  // Initialize services AFTER connection is established
-  if (deviceConnected && !servicesInitialized) {
-    delay(1000);
-    if (initializeServices()) {
-      Serial.println("Services initialized successfully");
+    Serial.println("Forming a connection to the device...");
+    
+    // Attempt connection
+    if(bleClient->connect(myDevice)) {
+        Serial.println("Connected to server");
+        setupServices();
     } else {
-      Serial.println("Failed to initialize services");
+        Serial.println("Failed to connect to device");
     }
-  }
 
-  // Handle data requests when fully connected and initialized
-if (deviceConnected && servicesInitialized && pClient != nullptr) {
-  static unsigned long lastPublish = 0;
-  
-  if (millis() - lastPublish > 10000) {
-    requestSmartBandData();
-    
-    // Publish after reading new data
-    StaticJsonDocument<200> doc;
-    doc["heart_rate"] = currentHR;
-    doc["battery_level"] = batteryLevel;
-    doc["seq_id"] = packetCounter++;
-    char jsonBuffer[256];
-    serializeJson(doc, jsonBuffer);
-    
-    if (mqtt_client.publish(mqtt_topic, jsonBuffer)) {
-      Serial.println("Published JSON sensor data");
-    } else {
-      Serial.println("Publish failed!");
-    }
-    
-    lastPublish = millis();
-  }
+    delete myDevice;
+    myDevice = nullptr;
 
-  // Check connection status
-  if (!pClient->isConnected()) {
-    Serial.println("Connection lost!");
-    deviceConnected = false;
-    servicesInitialized = false;
     doConnect = false;
   }
-}
 
-  // If not connected and not trying to connect, restart scan
-  if (!deviceConnected && !doConnect) {
-    if (!isScanning) {
-       Serial.println("Restarting scan...");
-       delay(5000); // Wait 5 seconds before retrying
-       startScan();
-    }
+  if (connected) {
+      long now = millis();
+      if (now - lastMsg > 1000) {
+          lastMsg = now;
+          
+          // Read battery
+          if(batChar) {
+              std::string val = batChar->readValue();
+              if(val.length() > 0) {
+                  batLevel = (int)val[0];
+              }
+          }
+
+          // JSON doc
+          JsonDocument doc;
+          doc["heart_rate"] = hrValue;
+          doc["battery_level"] = batLevel;
+          doc["seq_id"] = count++;
+          
+          char buffer[256];
+          serializeJson(doc, buffer);
+          client.publish(topic, buffer);
+          Serial.println(buffer);
+      }
+  } 
+  else {
+     if(!doConnect && !scanning) {
+          Serial.println("Device not found or disconnected. Starting new scan...");
+          startScan();
   }
-  
-  delay(100);
+}
+  delay(10);
 }
