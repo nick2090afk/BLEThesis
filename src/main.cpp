@@ -132,12 +132,8 @@ void scanCompleteCB(BLEScanResults scanResults) {
 
 void startScan() {
   scanning = true; 
-  BLEScan* pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-  pBLEScan->setInterval(1349);
-  pBLEScan->setWindow(449);
-  pBLEScan->setActiveScan(true);
-  pBLEScan->start(5, scanCompleteCB, false);
+  Serial.println("Starting BLE scan...");
+  BLEDevice::getScan()->start(5, scanCompleteCB, false);
 }
 
 void setup() {
@@ -150,7 +146,7 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("WiFi OK");
+  Serial.println("\nWiFi OK");
 
   // Secure Client setup
   espClient.setCACert(ca_cert);
@@ -158,6 +154,12 @@ void setup() {
   
   // Start BLE
   BLEDevice::init("");
+  BLEScan* pBLEScan = BLEDevice::getScan();
+  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+  pBLEScan->setInterval(1349);
+  pBLEScan->setWindow(449);
+  pBLEScan->setActiveScan(true);
+  
   startScan();
 }
 
