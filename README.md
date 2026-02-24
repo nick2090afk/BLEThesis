@@ -148,7 +148,8 @@ Install VS Code and PlatformIO
     json
     {
        "heart_rate": 75,
-       "battery_level": 85
+       "battery_level": 85,
+       "seq_id": 105
     }
 
 ### Configuration Details
@@ -217,7 +218,7 @@ Install VS Code and PlatformIO
 
     Check WiFi signal strength
 
-    Ensure your network supports 2.4 GHz (ESP32 does not support 5 GHz)
+    Ensure your network supports 2.4 GHz (ESP32 WROOM does not support 5 GHz)
 
 ### MQTT Connection Failures
 
@@ -264,7 +265,7 @@ Install VS Code and PlatformIO
 
 ## MQTT settings
 
-    MQTT messages use QoS 0 (fire and forget), it is faster, uses less bandwidth, keeps your loop non-blocking, and ensures your dashboard always displays the most recent physical state of the user.
+    MQTT messages use QoS 0 (fire and forget), it is faster, uses less bandwidth, keeps the loop non-blocking, and ensures the dashboard always displays the most recent physical state of the user.
 
 ## Medical and Ethical Disclaimer
 
