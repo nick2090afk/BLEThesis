@@ -264,12 +264,7 @@ Install VS Code and PlatformIO
 
 ## MQTT settings
 
-    MQTT messages use QoS 0 (fire and forget)
-    
-### For QoS 1 modify the code: 
-    
-    mqtt_client.publish(mqtt_topic, jsonBuffer, false); // QoS 0 (current) 
-    mqtt_client.subscribe(mqtt_topic, 1); // QoS 1 for subscribe
+    MQTT messages use QoS 0 (fire and forget), it is faster, uses less bandwidth, keeps your loop non-blocking, and ensures your dashboard always displays the most recent physical state of the user.
 
 ## Medical and Ethical Disclaimer
 
